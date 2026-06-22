@@ -270,6 +270,12 @@ function init() {
     sel.innerHTML = blank + codes.map(c => `<option value="${c}">${prefs[c].n}</option>`).join('');
   });
   document.getElementById('selL').addEventListener('change', updateRec);
+
+  const prefParam = new URLSearchParams(window.location.search).get('pref');
+  if (prefParam && prefs[prefParam]) {
+    document.getElementById('selL').value = prefParam;
+    updateRec();
+  }
 }
 
 function swapPref() {
