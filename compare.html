@@ -215,6 +215,7 @@ const REV_CMT = {
   '地方交付税': (r, h) => r >= 1.5 ? `${h}の国依存度が高い（地方交付税＋臨財債）。財政力が弱いほど交付税が多くなる構造です。` : null,
   '国庫支出金': (r, h) => r >= 1.5 ? `${h}への国庫支出金が多い。福祉需要・公共事業規模の差が主因です。` : null,
   '地方債':     (r, h) => r >= 1.5 ? `${h}の借り入れが多い。建設投資・財源不足補填スタンスの差が現れます。` : null,
+  'その他':     (r, h) => r >= 1.5 ? `${h}のその他収入が多い。中小企業への直接貸付を行う自治体では償還金がその他収入に計上されるため、商工費（歳出）と合わせて差引額を確認してください。` : null,
 };
 
 // ── Recommended prefectures ────────────────────────────
@@ -296,7 +297,7 @@ function buildAnalysis(L, R) {
     const note = fn(r, lp >= rp ? L.n : R.n, lp >= rp ? R.n : L.n);
     if (note) items.push({ key, r, note, lp, rp });
   });
-  ['地方税', '地方交付税', '国庫支出金', '地方債'].forEach(key => {
+  ['地方税', '地方交付税', '国庫支出金', '地方債', 'その他'].forEach(key => {
     const fn = REV_CMT[key]; if (!fn) return;
     const lv = getTotal(L.rev[key] || 0), rv = getTotal(R.rev[key] || 0);
     const lp = lv / L.pop, rp = rv / R.pop;
