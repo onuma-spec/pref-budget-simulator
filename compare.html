@@ -81,6 +81,16 @@ select { width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radiu
 .chart-bar-bg { flex: 1; background: #edf2f7; border-radius: 3px; height: 12px; overflow: hidden; }
 .chart-bar-fill { height: 100%; border-radius: 3px; min-width: 2px; }
 .chart-val { font-size: 0.67rem; color: #4a5568; white-space: nowrap; min-width: 88px; }
+/* Chip label */
+.rec-chip-label { font-size: 0.68rem; color: #718096; display: block; margin-bottom: 2px; }
+/* Accordion expand button */
+.expand-btn { background: none; border: 1px solid #90cdf4; border-radius: 3px; padding: 1px 5px; font-size: 0.67rem; color: #2b6cb0; cursor: pointer; margin-left: 6px; vertical-align: middle; line-height: 1.4; }
+.expand-btn:hover { background: #ebf8ff; }
+/* Sub-rows (項目) */
+.sub-row { background: #f9fbfd; }
+.sub-row.highlight { background: #fffbeb; }
+.sub-row td { font-size: 0.78rem; }
+.sub-row td.lbl { padding-left: 22px; font-weight: normal; color: #718096; border-left: 3px solid #bee3f8; }
 @media (max-width: 560px) {
   .sel-wrap { flex-direction: column; }
   .sel-block { min-width: 100%; }
@@ -104,7 +114,7 @@ select { width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radiu
       <div class="step">② おすすめから比較先を選ぶか、右に別の都道府県を選ぶ</div>
       <div class="step">③ 一人当たり差を読み、削減の参考にする</div>
     </div>
-    <p>💡 おすすめ比較先は「歳出規模が近い（±20%以内）かつ自主財源率が高い都道府県」を自動表示します。</p>
+    <p>💡 おすすめ比較先は①歳出規模が近い・②人口規模が近い・③全国で自主財源率が高い都道府県を自動表示します。</p>
     <div class="caution">対象：普通会計決算のみ。水道・下水道・病院等の特別会計は含みません。消防費・商工費はデータ収録外の都道府県では0表示になります。</div>
   </div>
 
@@ -196,62 +206,155 @@ const EXP_DESC = {
   'その他':       '災害復旧・諸支出金・税関係交付金など',
 };
 
+// 款内項目の説明
+const USAGE_MAP = {
+  '民生費': {
+    '社会福祉費': '障害者支援給付・社会福祉協議会補助・低所得者向けサービス',
+    '老人福祉費': '介護保険外の高齢者支援（配食・緊急通報・外出支援・敬老事業等）',
+    '児童福祉費': '保育所・認定こども園の運営、子育て給付・支援サービス',
+    '生活保護費': '生活・医療・住宅扶助など最低生活保障の給付',
+    '災害救助費': '被災者への応急救助・仮設住宅・生活再建支援',
+  },
+  '教育費': {
+    '教育総務費':     '教育委員会運営・教職員研修・学校事務管理',
+    '小学校費':       '県立小学校の施設整備・維持管理（都道府県立は少数）',
+    '中学校費':       '県立中学校の施設整備・維持管理（都道府県立は少数）',
+    '高等学校費':     '県立高校の施設整備・教職員人件費（都道府県の教育費の主体）',
+    '特別支援学校費': '特別支援学校の施設整備・維持管理・支援員配置',
+    '幼稚園費':       '公立幼稚園の運営・施設整備・保育料補助',
+    '社会教育費':     '図書館・公民館・博物館の運営費',
+    '保健体育費':     '体育施設管理・学校給食・学校医・スポーツ振興',
+    '大学費':         '公立大学の運営・施設整備',
+  },
+  '土木費': {
+    '土木管理費':     '道路・河川・公園施設の維持管理委託費・修繕費',
+    '道路橋りょう費': '県道・橋梁の維持修繕・改良・新設',
+    '河川海岸費':     '河川改修・護岸整備・海岸保全工事',
+    '港湾費':         '港湾施設（岸壁・泊地等）の整備・維持管理',
+    '都市計画費':     '区画整理・街路・公園整備・都市再生事業',
+    '住宅費':         '県営住宅の建設・改修・維持管理',
+    '空港費':         '空港施設の整備・運営管理',
+  },
+  '衛生費': {
+    '公衆衛生費': '感染症対策・健康診査・予防接種・保健センター運営',
+    '保健所費':   '都道府県設置保健所の人件費・運営費',
+    '医薬費':     '医療機関指導・薬局監視・医薬品行政',
+    '環境衛生費': 'ごみ処理・廃棄物対策等の環境保全行政',
+    '清掃費':     '廃棄物処理行政・不法投棄対策等',
+    '結核対策費': '結核検診・患者への入院勧告・治療費支援',
+    '精神衛生費': '精神保健相談・デイケア・精神障害者の地域生活支援',
+  },
+  '総務費': {
+    '総務管理費':   '庁舎維持管理・情報システム・人事・一般管理事務',
+    '企画費':       '総合計画策定・政策調査・広報費用',
+    '防災費':       '防災設備整備・避難訓練・備蓄品・ハザードマップ更新',
+    '市町村振興費': '市区町村への支援補助・地域振興施策',
+    '徴税費':       '県税の賦課・徴収事務',
+    '選挙費':       '選挙の管理・執行',
+    '監査委員費':   '都道府県の財政・事務の監査',
+    '統計調査費':   '各種統計調査（国調等）の実施・集計',
+    '人事委員会費': '職員採用試験・給与勧告等の人事行政',
+  },
+  '農林水産業費': {
+    '農業費':   '農業振興・新規就農支援・農業団体への補助金',
+    '農地費':   '農業用水路・農道の整備・土地改良事業への負担金',
+    '林業費':   '森林整備・治山対策・林業従事者・森林組合への補助',
+    '畜産業費': '畜産振興・家畜保健衛生・酪農農家支援',
+    '水産業費': '水産業振興・漁業者支援・漁港整備',
+  },
+  'その他': {
+    '災害復旧費':           '被災した公共施設・インフラの復旧工事',
+    '諸支出金':             '各種特別会計への繰出金等',
+    '特別区財政調整交付金': '都区財政調整制度に基づき東京都が23区に配分する交付金（東京都のみ）',
+    '税関係交付金':         '法定交付金の市町村への支払い',
+    '前年度繰上充用金':     '前年度決算赤字の補填（会計処理上の支出）',
+  },
+};
+
 // ── Analysis comments ──────────────────────────────────
 const KAN_CMT = {
   '民生費':       (r, h) => r >= 2 ? `${h}の社会福祉支出が多い。高齢化率・生活保護率の差や、特別会計との切り出し方の違いが影響します。` : null,
-  '教育費':       (r, h) => r >= 1.5 ? `${h}の教育費が多い。学校施設整備・大学費の有無・社会教育投資の差が主因です。` : null,
+  '教育費':       (r, h) => r >= 2 ? `${h}の教育費が多い。学校施設整備・大学費の有無・社会教育投資の差が主因です。` : null,
   '土木費':       (r, h) => r >= 2 ? `${h}の土木費が多い。地理的条件（山地・沿岸・積雪等）・都市化率の差が反映されます。` : null,
   '衛生費':       (r, h) => r >= 2 ? `${h}の衛生費が多い。保健所管轄の広さ・廃棄物処理体制の差が影響します。` : null,
   '総務費':       (r, h) => r >= 2 ? `${h}の総務費が多い。庁舎整備・DX投資・防災設備への支出差が主な要因です。` : null,
-  '商工費':       (r, h) => r >= 1.3 ? `${h}の商工費が多い。中小企業への直接貸付を行う自治体では貸付額が商工費（歳出）・償還額がその他収入（歳入）に計上されるため、両科目が同時に膨らむ場合があります。その他収入と合わせて差引額を確認してください。` : `産業振興支出はいずれも小規模な水準です。`,
-  '警察費':       (r, h) => r >= 1.5 ? `${h}の警察費が多い。人口規模・犯罪発生率・広域捜査体制等の差が反映されます。` : null,
+  '商工費':       (r, h) => r >= 2 ? `${h}の商工費が多い。中小企業への直接貸付を行う自治体では貸付額が商工費（歳出）・償還額がその他収入（歳入）に計上されるため、両科目が同時に膨らむ場合があります。その他収入と合わせて差引額を確認してください。` : null,
+  '警察費':       (r, h) => r >= 2 ? `${h}の警察費が多い。人口規模・犯罪発生率・広域捜査体制等の差が反映されます。` : null,
   '農林水産業費': (r, h) => r >= 2 ? `${h}の一次産業支出が多い。耕地面積・海岸線・森林率など産業構造の差が主因です。` : null,
-  '公債費':       (r, h) => r >= 1.5 ? `${h}の公債費が多い（過去の借り入れ規模の差）。将来世代への負担差を示す指標です。` : null,
+  '公債費':       (r, h) => r >= 2 ? `${h}の公債費が多い（過去の借り入れ規模の差）。将来世代への負担差を示す指標です。` : null,
   '労働費':       (r, h) => r >= 2 ? `${h}の雇用対策支出が多い。国（労働局）との役割分担や独自就労支援施策の差が反映されます。` : null,
   '消防費':       (r, h) => r >= 2 ? `${h}の消防費が多い。常備消防の広域化状況・自主防災組織補助水準の差があります。` : null,
 };
 const REV_CMT = {
-  '地方税':     (r, h, l) => r <= 1.15 ? `両都道府県の経済規模（税収力）はほぼ同水準です。` : `${h}の経済規模（税収力）が大きく、自主財源が充実しています。`,
-  '地方交付税': (r, h) => r >= 1.5 ? `${h}の国依存度が高い（地方交付税＋臨財債）。財政力が弱いほど交付税が多くなる構造です。` : null,
-  '国庫支出金': (r, h) => r >= 1.5 ? `${h}への国庫支出金が多い。福祉需要・公共事業規模の差が主因です。` : null,
-  '地方債':     (r, h) => r >= 1.5 ? `${h}の借り入れが多い。建設投資・財源不足補填スタンスの差が現れます。` : null,
-  'その他':     (r, h) => r >= 1.5 ? `${h}のその他収入が多い。中小企業への直接貸付を行う自治体では償還金がその他収入に計上されるため、商工費（歳出）と合わせて差引額を確認してください。` : null,
+  '地方税':     (r, h) => r >= 2 ? `${h}の経済規模（税収力）が大きく、自主財源が充実しています。` : null,
+  '地方交付税': (r, h) => r >= 2 ? `${h}の国依存度が高い（地方交付税＋臨財債）。財政力が弱いほど交付税が多くなる構造です。` : null,
+  '国庫支出金': (r, h) => r >= 2 ? `${h}への国庫支出金が多い。福祉需要・公共事業規模の差が主因です。` : null,
+  '地方債':     (r, h) => r >= 2 ? `${h}の借り入れが多い。建設投資・財源不足補填スタンスの差が現れます。` : null,
+  'その他':     (r, h) => r >= 2 ? `${h}のその他収入が多い。中小企業への直接貸付を行う自治体では償還金がその他収入に計上されるため、商工費（歳出）と合わせて差引額を確認してください。` : null,
 };
 
 // ── Recommended prefectures ────────────────────────────
 function getSelfFinanceRatio(p) {
-  const tax = getTotal(p.rev['地方税'] || 0);
-  const oth = getTotal(p.rev['その他'] || 0);
-  const rv  = totRev(p);
-  return rv > 0 ? (tax + oth) / rv : 0;
+  const rv = totRev(p);
+  if (rv <= 0 || !p.pop) return 0;
+  const tax    = getTotal(p.rev['地方税']           || 0);
+  const kk     = getTotal(p.rev['国庫支出金']       || 0);
+  const kofu   = getTotal(p.rev['地方交付税']       || 0) +
+                 getTotal(p.rev['地方特例交付金等'] || 0) +
+                 getTotal(p.rev['地方譲与税']       || 0);
+  const saiken = getTotal(p.rev['地方債']           || 0);
+  return (tax + Math.max(0, rv - tax - kk - kofu - saiken)) / rv;
 }
 
 function updateRec() {
   const code = document.getElementById('selL').value;
   if (!code) { document.getElementById('recArea').style.display = 'none'; return; }
-  const base = BUDGET_DATA.prefectures[code];
+  const base    = BUDGET_DATA.prefectures[code];
+  const baseSFR = getSelfFinanceRatio(base);
   const baseExp = totExp(base);
+  const basePop = base.pop;
 
-  const candidates = Object.entries(BUDGET_DATA.prefectures)
+  const others = Object.entries(BUDGET_DATA.prefectures)
     .filter(([c]) => c !== code)
-    .map(([c, p]) => {
-      const ex = totExp(p);
-      const diff = Math.abs(ex - baseExp) / baseExp;
-      return { code: c, name: p.n, ex, diff, sfr: getSelfFinanceRatio(p) };
-    })
-    .filter(x => x.diff <= 0.2)
-    .sort((a, b) => b.sfr - a.sfr)
-    .slice(0, 3);
+    .map(([c, p]) => ({ code: c, name: p.n, sfr: getSelfFinanceRatio(p), exp: totExp(p), pop: p.pop }));
+
+  const used = new Set([code]);
+  const chips = [];
+
+  const pickWithFallback = (pool, labelMatch, labelFallback) => {
+    const top = pool.filter(x => !used.has(x.code)).sort((a, b) => b.sfr - a.sfr)[0];
+    if (top) {
+      chips.push({ ...top, label: labelMatch });
+    } else {
+      const fb = others.filter(x => !used.has(x.code)).sort((a, b) => b.sfr - a.sfr)[0];
+      if (fb) chips.push({ ...fb, label: labelFallback });
+    }
+    if (chips.length > 0) used.add(chips[chips.length - 1].code);
+  };
+
+  pickWithFallback(
+    others.filter(x => Math.abs(x.exp - baseExp) / baseExp <= 0.2),
+    '①歳出規模が近い（±20%）・自主財源率トップ',
+    '①自主財源率トップ（歳出±20%圏内の候補なし）'
+  );
+  pickWithFallback(
+    others.filter(x => Math.abs(x.pop - basePop) / basePop <= 0.2),
+    '②人口規模が近い（±20%）・自主財源率トップ',
+    '②自主財源率2位（人口±20%圏内の候補なし）'
+  );
+  const c3 = others.filter(x => !used.has(x.code)).sort((a, b) => b.sfr - a.sfr)[0];
+  if (c3) chips.push({ ...c3, label: '③全国・自主財源率トップ' });
 
   const area = document.getElementById('recArea');
-  if (!candidates.length) { area.style.display = 'none'; return; }
+  if (!chips.length) { area.style.display = 'none'; return; }
 
   area.style.display = 'block';
-  area.innerHTML = `<h4>💡 おすすめ比較先（歳出±20%以内・自主財源率が高い順）</h4>
-    <div class="rec-chips">${candidates.map(c =>
+  area.innerHTML = `<h4>💡 おすすめ比較先（自主財源率：${(baseSFR*100).toFixed(1)}%）</h4>
+    <div class="rec-chips">${chips.map(c =>
       `<button class="rec-chip" onclick="setAndCompare('${c.code}')">
+        <span class="rec-chip-label">${c.label}</span>
         <span class="rec-chip-name">${c.name}</span>
-        <span class="rec-chip-stat">歳出 ${fmtO(c.ex)}億円 ／ 自主財源率 ${(c.sfr * 100).toFixed(1)}%</span>
+        <span class="rec-chip-stat">自主財源率 ${(c.sfr * 100).toFixed(1)}%</span>
       </button>`).join('')}
     </div>`;
 }
@@ -328,12 +431,19 @@ function buildOverview(L, R) {
       <div class="ov-row"><span class="ov-lbl">歳入合計</span><span class="ov-val">${fmtO(rv)}億円</span></div>
       <div class="ov-row"><span class="ov-lbl">歳出合計</span><span class="ov-val">${fmtO(ex)}億円</span></div>
       <div class="ov-row"><span class="ov-lbl">一人当たり歳入</span><span class="ov-val">${Math.round(rv*1000/p.pop).toLocaleString()}円</span></div>
-      <div class="ov-row"><span class="ov-lbl">財政力指数</span><span class="ov-val">${p.ind['財政力指数'].toFixed(3)}</span></div>
-      <div class="ov-row"><span class="ov-lbl">経常収支比率</span><span class="ov-val">${(p.ind['経常収支比率']*100).toFixed(1)}%</span></div>
+      ${p.ind['財政力指数']   != null ? `<div class="ov-row"><span class="ov-lbl">財政力指数</span><span class="ov-val">${p.ind['財政力指数'].toFixed(3)}</span></div>` : ''}
+      ${p.ind['経常収支比率'] != null ? `<div class="ov-row"><span class="ov-lbl">経常収支比率</span><span class="ov-val">${(p.ind['経常収支比率']*100).toFixed(1)}%</span></div>` : ''}
       <div class="ov-row"><span class="ov-lbl">自主財源率</span><span class="ov-val">${(getSelfFinanceRatio(p)*100).toFixed(1)}%</span></div>
     </div>`;
   };
-  return `<div class="card"><h3>📋 概要</h3><div class="ov-grid">${block(L)}${block(R)}</div></div>`;
+  const tokyoNote = (L.n === '東京都' || R.n === '東京都')
+    ? `<p class="note">⚠️ 東京都は都区財政調整制度により特別区の法人住民税・固定資産税を都が一括徴収するため、地方税収入が他の道府県より高く見えます（徴収額は歳入「その他収入」に含まれます）。23区への配分額は歳出「その他」の「特別区財政調整交付金」に計上されています。また東京消防庁を都が直営しているため、消防費も他府県比で高水準になります（他府県の消防は主に市町村負担）。比較の際はこの構造的差異を踏まえてください。</p>`
+    : '';
+  return `<div class="card"><h3>📋 概要</h3>
+    <div class="ov-grid">${block(L)}${block(R)}</div>
+    <p class="note">自主財源率 ＝（道府県税＋その他収入＋繰入金）÷ 歳入合計。一人当たり指標は参考値です。</p>
+    ${tokyoNote}
+  </div>`;
 }
 
 // ── Revenue table ──────────────────────────────────────
@@ -376,41 +486,80 @@ function buildRevTable(L, R) {
   </div>`;
 }
 
-// ── Expenditure table ──────────────────────────────────
+// ── Expenditure table (with accordion) ─────────────────
 function buildExpTable(L, R) {
   let rows = '', lTot = 0, rTot = 0;
   EXP_ORDER.forEach(key => {
-    const lv = getTotal(L.exp[key] || 0), rv = getTotal(R.exp[key] || 0);
-    if (lv === 0 && rv === 0) return;
+    const lObj = L.exp[key] || {}, rObj = R.exp[key] || {};
+    const lv = getTotal(lObj), rv = getTotal(rObj);
     lTot += lv; rTot += rv;
+    if (lv === 0 && rv === 0) return;
     const lp = lv / L.pop, rp = rv / R.pop;
-    const r = computeRatio(lp, rp);
-    const hl = r >= 3 ? ' class="highlight"' : '';
+    const r  = computeRatio(lp, rp);
+    const hl  = r >= 3 ? ' class="highlight"' : '';
     const lHi = lp >= rp ? ' class="hi"' : '';
     const rHi = rp > lp  ? ' class="hi"' : '';
+
+    const subKeys = [...new Set([...Object.keys(lObj), ...Object.keys(rObj)])]
+      .filter(k => k !== '_t')
+      .sort((a, b) => ((rObj[b]||0)+(lObj[b]||0)) - ((rObj[a]||0)+(lObj[a]||0)));
+    const hasDetail = subKeys.some(sk =>
+      (typeof lObj[sk]==='number' && lObj[sk]>0) || (typeof rObj[sk]==='number' && rObj[sk]>0));
+    const expandBtn = hasDetail
+      ? `<button class="expand-btn" onclick="toggleExp(this)" data-key="${key}">▶ 内訳</button>`
+      : '';
+
     rows += `<tr${hl}>
-      <td class="lbl">${key}<span class="item-desc">${EXP_DESC[key] || ''}</span></td>
-      <td class="num"${lHi}>${fmtO(lv)}億円<div class="per">${fmtP(lv, L.pop)}円/人</div></td>
-      <td class="num"${rHi}>${fmtO(rv)}億円<div class="per">${fmtP(rv, R.pop)}円/人</div></td>
+      <td class="lbl">${key}<span class="item-desc">${EXP_DESC[key] || ''}</span>${expandBtn}</td>
+      <td class="num"${lHi}>${fmtO(lv)}億円<div class="per">${fmtP(lv,L.pop)}円/人</div></td>
+      <td class="num"${rHi}>${fmtO(rv)}億円<div class="per">${fmtP(rv,R.pop)}円/人</div></td>
       <td class="ratio ${rClass(r)}">${fmtR(r)}</td>
     </tr>`;
+
+    if (hasDetail) {
+      subKeys.forEach(sk => {
+        const slv = typeof lObj[sk]==='number' ? lObj[sk] : 0;
+        const srv = typeof rObj[sk]==='number' ? rObj[sk] : 0;
+        if (slv===0 && srv===0) return;
+        const slp = slv/L.pop, srp = srv/R.pop;
+        const sr  = computeRatio(slp, srp);
+        const shl = sr >= 3 ? ' class="sub-row highlight"' : ' class="sub-row"';
+        const slHi = slp >= srp ? ' class="hi"' : '';
+        const srHi = srp > slp  ? ' class="hi"' : '';
+        rows += `<tr${shl} data-exp-grp="${key}" style="display:none">
+          <td class="lbl sub-lbl">${sk}<span class="item-desc">${(USAGE_MAP[key]||{})[sk]||''}</span></td>
+          <td class="num"${slHi}>${fmtO(slv)}億円<div class="per">${fmtP(slv,L.pop)}円/人</div></td>
+          <td class="num"${srHi}>${fmtO(srv)}億円<div class="per">${fmtP(srv,R.pop)}円/人</div></td>
+          <td class="ratio ${rClass(sr)}">${fmtR(sr)}</td>
+        </tr>`;
+      });
+    }
   });
-  const lr = computeRatio(lTot/L.pop, rTot/R.pop);
+  const lr   = computeRatio(lTot/L.pop, rTot/R.pop);
   const lHiT = lTot/L.pop >= rTot/R.pop ? ' class="hi"' : '';
-  const rHiT = rTot/R.pop > lTot/L.pop  ? ' class="hi"' : '';
+  const rHiT = rTot/R.pop >  lTot/L.pop ? ' class="hi"' : '';
   rows += `<tr class="total-row">
     <td class="lbl">歳出合計</td>
-    <td class="num"${lHiT}>${fmtO(lTot)}億円<div class="per">${fmtP(lTot, L.pop)}円/人</div></td>
-    <td class="num"${rHiT}>${fmtO(rTot)}億円<div class="per">${fmtP(rTot, R.pop)}円/人</div></td>
+    <td class="num"${lHiT}>${fmtO(lTot)}億円<div class="per">${fmtP(lTot,L.pop)}円/人</div></td>
+    <td class="num"${rHiT}>${fmtO(rTot)}億円<div class="per">${fmtP(rTot,R.pop)}円/人</div></td>
     <td class="ratio ${rClass(lr)}">${fmtR(lr)}</td>
   </tr>`;
-  return `<div class="card"><h3>📤 歳出比較（款別）</h3>
+  return `<div class="card"><h3>📤 歳出比較（款別・▶ 内訳で項目展開）</h3>
     <table class="cmp-table">
       <thead><tr><th class="lbl">款</th><th>${L.n}</th><th>${R.n}</th><th>倍率</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <p class="note">倍率は一人当たりで計算。消防費・商工費はデータ収録外の都道府県では0表示になります。</p>
+    <p class="note">倍率は一人当たりで計算。▶ 内訳 で項目別の詳細を展開できます。3倍以上の行は黄色ハイライト。</p>
   </div>`;
+}
+
+function toggleExp(btn) {
+  const key  = btn.dataset.key;
+  const rows = document.querySelectorAll(`tr[data-exp-grp="${key}"]`);
+  if (!rows.length) return;
+  const isHidden = rows[0].style.display === 'none';
+  rows.forEach(r => r.style.display = isHidden ? '' : 'none');
+  btn.textContent = isHidden ? '▼ 内訳' : '▶ 内訳';
 }
 
 // ── Chart builder ──────────────────────────────────────
@@ -471,8 +620,8 @@ function compare() {
   const L = BUDGET_DATA.prefectures[lCode];
   const R = BUDGET_DATA.prefectures[rCode];
   document.getElementById('results').innerHTML = [
-    buildAnalysis(L, R),
     buildOverview(L, R),
+    buildAnalysis(L, R),
     buildRevTable(L, R),
     buildRevChart(L, R),
     buildExpTable(L, R),
